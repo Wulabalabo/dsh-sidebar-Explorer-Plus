@@ -2,7 +2,7 @@
 
 一个 `dsh-better-sidebar` 的**消费插件**：在侧边栏新增一个「上传」tab，支持把**任意文件或整个文件夹**直接拖进去，上传到当前会话的工作区（保留文件夹结构）。
 
-它不是对 `dsh-better-sidebar` 源码的修改，而是通过其公开的 `ctx.betterSidebar.registerTab` 服务注册的一个独立插件页。
+它通过 `dsh-better-sidebar` 公开的 `ctx.betterSidebar.registerTab` 服务注册，是一个独立 npm 包，不改动 better-sidebar 源码。
 
 ## 功能
 
@@ -11,59 +11,52 @@
 - 📊 上传进度条 + 结果汇总（新增 / 覆盖 / 失败列表）
 - 🔒 与 `/api` 相同的浏览器信任围栏 + 会话 cwd 路径约束（防目录穿越）
 
+## 安装（官方方式）
+
+> 依赖已安装 `dsh-better-sidebar`（本插件通过其 `betterSidebar` 服务注册 tab）。
+
+```sh
+# 从 npm 安装（发布后）
+dsh plugin --profile web add dsh-sidebar-upload
+
+# 或从 GitHub 安装
+dsh plugin --profile web add github:Wulabalabo/dsh-sidebar-upload
+```
+
+装完**重启 `dsh web`**（本插件含 host 半），再**浏览器硬刷新**（Cmd/Ctrl+Shift+R），侧边栏 `+` 菜单里就会出现「上传」tab。
+
 ## 工作原理
 
 | 半边 | 作用 |
 |---|---|
-| host（`lib/index.js`） | 注册 `POST /sidebar-upload/upload` 原始字节上传路由，写入会话工作区 |
-| client（`lib/client.js`） | 通过 `ctx.betterSidebar.registerTab` 注册 `sidebar-upload` tab，渲染拖拽区 |
+| host（`src/index.ts` → `lib/index.js`） | 注册 `POST /sidebar-upload/upload` 原始字节上传路由，写入会话工作区 |
+| client（`src/client/index.tsx` → `lib/client.js`） | `ctx.betterSidebar.registerTab` 注册 `sidebar-upload` tab，渲染拖拽区 |
 
 上传路由契约：`POST /sidebar-upload/upload?sessionId=<id>&dir=<绝对目录>&name=<相对路径>`，body 为原始字节；`dir` 缺省时使用会话 cwd。响应 `{ ok, value: { path, bytes, overwrote } }`。
 
-## 安装
+## 开发 / 构建
 
 ```sh
-# 1. 把本插件链接进 web profile
-cd ~/.dsh/profiles/web
-
-# 2. package.json 的 dependencies 加入本地路径（或用你发布后的版本）
-#    "dsh-sidebar-upload": "link:/path/to/dsh-sidebar-upload"
-#    dsh.profile.bundles 追加 "dsh-sidebar-upload"
-
-# 3. 安装
-pnpm install
+npm install           # 安装 devDependencies
+npm run typecheck     # tsc --noEmit
+npm run build         # esbuild 打包 + 生成 lib/types/*.d.ts
 ```
 
-或手动编辑（等价于上面的第 2 步）：
-
-```jsonc
-// ~/.dsh/profiles/web/package.json
-{
-  "dsh": {
-    "profile": {
-      "bundles": ["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app", "dsh-better-sidebar", "dsh-sidebar-upload"]
-    }
-  },
-  "dependencies": {
-    "dsh-better-sidebar": "0.12.2",
-    "dsh-sidebar-upload": "link:/path/to/dsh-sidebar-upload"
-  }
-}
-```
-
-## 启用
-
-- **host 半改动需要重启** `dsh web`（本插件包含 host 半，必须重启一次）；
-- 重启后**浏览器硬刷新**（Cmd/Ctrl+Shift+R），侧边栏 `+` 菜单里就会出现「上传」tab。
+- `lib/` 是构建产物（已 gitignore），`npm publish` 时经 `prepublishOnly` 自动重建。
+- 客户端 bundle 走 `window.__ModuleLoader__.load({ id: 'dsh-sidebar-upload', factory })` 注册，`react` 作为 external 由模块表运行时解析。
 
 ## 配置（可选）
 
-在 profile 的 `cordis.patch.yml` 里给挂载行加 config 可调上传大小上限：
+在 profile 的挂载行加 config 可调上传大小上限（默认 50 MB）：
 
 ```yaml
 - insert:
     - id: sidebar-upload
       name: 'dsh-sidebar-upload'
       config:
-        uploadLimit: 104857600   # 100 MB；默认 50 MB
+        uploadLimit: 104857600   # 100 MB
 ```
+
+## License
+
+MIT

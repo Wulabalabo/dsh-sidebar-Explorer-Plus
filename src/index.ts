@@ -3,7 +3,7 @@
  *
  * Registers a single raw-bytes upload route (`POST /sidebar-upload/upload`)
  * that writes dropped files/folders under the conversation's working
- * directory. The browser client half (lib/client.js) registers a
+ * directory. The browser client half (src/client) registers a
  * dsh-better-sidebar tab whose drag-drop surface POSTs here.
  *
  * The route is gated by the same browser-trust fence as DSH's /api gateway
@@ -19,26 +19,74 @@ export const inject = ['webServer', 'sessions', 'webRuntime']
 /** Default cap of one uploaded file's bytes (50 MiB). */
 const DEFAULT_UPLOAD_LIMIT = 50 * 1024 * 1024
 
-// ── Tiny self-contained error/envelope helpers ────────────────────────────
+/** Host config (filled from the profile row's `config`, defaults applied in code). */
+export interface Config {
+  uploadLimit?: number
+}
+
+// ── Structural service faces (kept local so the package stays self-contained)
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface HttpRequest {
+  url?: string
+  method?: string
+  headers: Record<string, string | string[] | undefined>
+  [Symbol.asyncIterator](): AsyncIterator<string | Uint8Array>
+}
+
+interface HttpResponse {
+  statusCode: number
+  writeHead(status: number, headers?: Record<string, string>): void
+  end(body?: string | Uint8Array): void
+}
+
+interface WebRoute {
+  kind: 'exact' | 'prefix'
+  path: string
+  handler: (req: HttpRequest, res: HttpResponse) => void | Promise<void>
+}
+
+interface WebServer {
+  register(route: WebRoute): () => void
+}
+
+interface SessionStore {
+  get(id: string): { header: { cwd?: string } } | undefined
+}
+
+interface WebRuntime {
+  trustedHosts: readonly string[]
+}
+
+interface HostContext {
+  webServer: WebServer
+  sessions: SessionStore
+  webRuntime: WebRuntime
+  effect(fn: () => void | (() => void), label?: string): void
+}
+
+// ── Error / envelope helpers ────────────────────────────────────────────────
 
 class UploadError extends Error {
-  constructor(code, message, status = 400) {
+  constructor(
+    readonly code: string,
+    message: string,
+    readonly status = 400,
+  ) {
     super(message)
-    this.code = code
-    this.status = status
   }
 }
 
-function writeJson(res, status, body) {
+function writeJson(res: HttpResponse, status: number, body: unknown): void {
   res.writeHead(status, { 'content-type': 'application/json; charset=utf-8' })
   res.end(JSON.stringify(body))
 }
 
-function writeOk(res, value) {
+function writeOk(res: HttpResponse, value: unknown): void {
   writeJson(res, 200, { ok: true, value })
 }
 
-function writeError(res, error) {
+function writeError(res: HttpResponse, error: unknown): void {
   if (error instanceof UploadError) {
     writeJson(res, error.status, { ok: false, error: { code: error.code, message: error.message } })
     return
@@ -47,14 +95,14 @@ function writeError(res, error) {
   writeJson(res, 500, { ok: false, error: { code: 'internal', message } })
 }
 
-// ── Browser-trust fence (behaviorally identical to DSH's api gateway) ─────
+// ── Browser-trust fence (behaviorally identical to DSH's api gateway) ───────
 
-function header(headers, name) {
+function header(headers: HttpRequest['headers'], name: string): string | undefined {
   const value = headers[name]
   return typeof value === 'string' ? value : undefined
 }
 
-function parseAuthority(authority) {
+function parseAuthority(authority: string): URL | undefined {
   try {
     return new URL(`http://${authority}`)
   } catch {
@@ -62,7 +110,7 @@ function parseAuthority(authority) {
   }
 }
 
-function isLoopbackHostname(hostname) {
+function isLoopbackHostname(hostname: string): boolean {
   if (hostname === 'localhost' || hostname === '[::1]') return true
   const parts = hostname.split('.')
   return parts.length === 4
@@ -70,13 +118,13 @@ function isLoopbackHostname(hostname) {
     && parts.every((part) => /^\d{1,3}$/.test(part) && Number(part) <= 255)
 }
 
-function canonicalAuthority(entry, entryUrl) {
+function canonicalAuthority(entry: string, entryUrl: URL): string {
   const port = entryUrl.port !== '' ? entryUrl.port : new URL(`https://${entry}`).port
   return port === '' ? entryUrl.hostname : `${entryUrl.hostname}:${port}`
 }
 
-function isTrustedAuthority(hostUrl, trustedHosts) {
-  return (trustedHosts || []).some((entry) => {
+function isTrustedAuthority(hostUrl: URL, trustedHosts: readonly string[]): boolean {
+  return trustedHosts.some((entry) => {
     const entryUrl = parseAuthority(entry)
     if (entryUrl === undefined) return false
     return canonicalAuthority(entry, entryUrl) === entryUrl.hostname
@@ -85,7 +133,7 @@ function isTrustedAuthority(hostUrl, trustedHosts) {
   })
 }
 
-function isTrustedRequest(req, trustedHosts) {
+function isTrustedRequest(req: HttpRequest, trustedHosts: readonly string[]): boolean {
   const host = header(req.headers, 'host')
   if (host === undefined) return false
   const hostUrl = parseAuthority(host)
@@ -101,20 +149,20 @@ function isTrustedRequest(req, trustedHosts) {
   }
 }
 
-// ── Path helpers ──────────────────────────────────────────────────────────
+// ── Path helpers ────────────────────────────────────────────────────────────
 
-function requireAbsolute(path) {
+function requireAbsolute(path: string): string {
   if (!path.startsWith('/') && !/^[A-Za-z]:[\\/]/.test(path)) {
     throw new UploadError('bad-request', `"${path}" is not an absolute path`)
   }
   return path
 }
 
-function normalizePath(value) {
+function normalizePath(value: string): string {
   return value.replace(/[\\/]+/g, '/').replace(/\/$/, '')
 }
 
-function isWithin(base, target, platform = process.platform) {
+function isWithin(base: string, target: string, platform: NodeJS.Platform = process.platform): boolean {
   const b = normalizePath(base)
   const t = normalizePath(target)
   if (platform === 'win32') {
@@ -125,13 +173,9 @@ function isWithin(base, target, platform = process.platform) {
   return t === b || t.startsWith(`${b}/`)
 }
 
-/**
- * Resolve a session's authoritative working directory: session header cwd,
- * then the client-provided cwd, then the process cwd.
- */
-function sessionCwdOf(ctx, sessionId, clientCwd) {
-  const session = ctx.sessions.get(sessionId)
-  const headerCwd = session?.header?.cwd
+/** Resolve a session's authoritative working directory (header cwd → client cwd → process cwd). */
+function sessionCwdOf(ctx: HostContext, sessionId: string, clientCwd?: string): string {
+  const headerCwd = ctx.sessions.get(sessionId)?.header.cwd
   if (headerCwd !== undefined && headerCwd !== '') return headerCwd
   if (clientCwd !== undefined && clientCwd !== '') {
     try {
@@ -144,8 +188,8 @@ function sessionCwdOf(ctx, sessionId, clientCwd) {
 }
 
 /** Read the raw request body, bounded by `limit` bytes. */
-async function readRawBody(req, limit) {
-  const chunks = []
+async function readRawBody(req: HttpRequest, limit: number): Promise<Buffer> {
+  const chunks: Buffer[] = []
   let total = 0
   for await (const chunk of req) {
     const buffer = Buffer.from(chunk)
@@ -156,11 +200,11 @@ async function readRawBody(req, limit) {
   return Buffer.concat(chunks)
 }
 
-// ── Plugin body ───────────────────────────────────────────────────────────
+// ── Plugin body ─────────────────────────────────────────────────────────────
 
-export function apply(ctx, config) {
-  const configured = config && Number.isFinite(config.uploadLimit) && config.uploadLimit > 0
-    ? config.uploadLimit
+export function apply(ctx: HostContext, config?: Config): void {
+  const uploadLimit = config !== undefined && Number.isFinite(config.uploadLimit) && (config.uploadLimit ?? 0) > 0
+    ? config.uploadLimit as number
     : DEFAULT_UPLOAD_LIMIT
 
   ctx.effect(() => ctx.webServer.register({
@@ -200,7 +244,7 @@ export function apply(ctx, config) {
         if (!isWithin(cwd, target)) {
           throw new UploadError('fs-error', 'upload target outside the session working directory', 403)
         }
-        const bytes = await readRawBody(req, configured)
+        const bytes = await readRawBody(req, uploadLimit)
         const existed = await stat(target).then((info) => info.isFile(), () => false)
         const tmp = `${target}.dsh-upload-${process.pid}-${Math.random().toString(36).slice(2)}`
         try {

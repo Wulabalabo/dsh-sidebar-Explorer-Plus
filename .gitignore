@@ -1,4 +1,16 @@
+# Dependency directories
 node_modules/
-.DS_Store
+
+# Build output (lib/ is produced by `npm run build` and shipped from the
+# published tarball; it is not committed)
+lib/
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Logs
 *.log
 npm-debug.log*
+
+# OS / editor cruft
+.DS_Store
