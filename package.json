@@ -24,9 +24,7 @@
   ],
   "scripts": {
     "build": "node build.mjs && tsc -p tsconfig.build.json",
-    "typecheck": "tsc --noEmit",
-    "prepare": "node build.mjs",
-    "prepublishOnly": "npm run build"
+    "typecheck": "tsc --noEmit"
   },
   "dsh": {
     "bundle": {

@@ -2,9 +2,10 @@
  * dsh-sidebar-upload client half.
  *
  * Registers one tab ("上传" / "Upload") in dsh-better-sidebar through the
- * public `ctx.betterSidebar.registerTab` service. The tab is a drag-and-drop
- * surface: drop files or folders to upload them (preserving folder structure)
- * into the conversation workspace via the plugin's own /sidebar-upload route.
+ * public `ctx.betterSidebar.registerTab` service. The tab shows a folder tree
+ * rooted at the conversation workspace (cwd) — pick a directory, then drop
+ * files or folders onto the panel to upload them (preserving folder
+ * structure) into that directory via the plugin's own /sidebar-upload route.
  */
 import { createElement, useCallback, useEffect, useRef, useState } from 'react'
 
@@ -58,24 +59,60 @@ const STYLE_ID = 'dsh-sidebar-upload-style'
 function ensureStyle(): void {
   if (document.getElementById(STYLE_ID)) return
   const css = [
-    '.dsu-root{display:flex;flex-direction:column;height:100%;min-height:0;padding:12px;box-sizing:border-box;gap:10px;overflow-y:auto}',
-    '.dsu-hint{font:var(--dsw-font-xxs-12,12px/1.5 system-ui);color:var(--dsw-alias-label-tertiary,#888);margin:0}',
-    '.dsu-zone{flex:1;min-height:140px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;border:1.5px dashed var(--dsw-alias-border-l1,rgba(128,128,128,.5));border-radius:12px;padding:24px;text-align:center;transition:border-color .12s ease,background .12s ease}',
+    '.dsu-root{display:flex;flex-direction:column;height:100%;min-height:0;box-sizing:border-box;overflow-y:auto}',
+    '.dsu-head{padding:12px 12px 6px;font:var(--dsw-font-xxs-12,12px/1.5 system-ui);color:var(--dsw-alias-label-tertiary,#888);word-break:break-all}',
+    '.dsu-tree{flex:1;min-height:0;overflow-y:auto;padding:0 6px 8px}',
+    '.dsu-row{display:flex;align-items:center;gap:4px;height:30px;border-radius:8px;padding:0 6px;cursor:pointer;color:var(--dsw-alias-label-primary,#222);font:var(--dsw-font-s-14,14px/1.4 system-ui)}',
+    '.dsu-row:hover{background:var(--dsw-alias-interactive-bg-hover,rgba(0,0,0,.05))}',
+    '.dsu-row.dsu-selected{background:var(--dsw-alias-state-business-tertiary,rgba(77,107,254,.1));color:var(--dsw-alias-state-business-primary,#4d6bfe)}',
+    '.dsu-chevron{flex:none;width:18px;height:18px;border:none;background:transparent;color:var(--dsw-alias-label-tertiary,#888);cursor:pointer;padding:0;font-size:11px;line-height:18px;text-align:center}',
+    '.dsu-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border:none;background:transparent;color:inherit;cursor:pointer;padding:0;text-align:left;font:inherit}',
+    '.dsu-empty{padding:16px;font:var(--dsw-font-xxs-12,12px/1.5 system-ui);color:var(--dsw-alias-label-tertiary,#888);text-align:center}',
+    '.dsu-zone{margin:6px 12px 12px;border:1.5px dashed var(--dsw-alias-border-l1,rgba(128,128,128,.5));border-radius:12px;padding:20px;text-align:center;transition:border-color .12s ease,background .12s ease}',
     '.dsu-zone.dsu-active{border-color:var(--dsw-alias-state-business-primary,#4d6bfe);background:var(--dsw-alias-state-business-tertiary,rgba(77,107,254,.08))}',
-    '.dsu-icon{display:block;width:34px;height:34px;color:var(--dsw-alias-label-tertiary,#888)}',
+    '.dsu-icon{display:block;width:32px;height:32px;margin:0 auto 8px;color:var(--dsw-alias-label-tertiary,#888)}',
     '.dsu-zone.dsu-active .dsu-icon{color:var(--dsw-alias-state-business-primary,#4d6bfe)}',
     '.dsu-title{font:var(--dsw-font-s-strong-14,600 14px/1.4 system-ui);color:var(--dsw-alias-label-primary,#222)}',
     '.dsu-sub{font:var(--dsw-font-xxs-12,12px/1.5 system-ui);color:var(--dsw-alias-label-tertiary,#888)}',
-    '.dsu-status{font:var(--dsw-font-xxs-12,12px/1.5 system-ui);color:var(--dsw-alias-label-secondary,#555);word-break:break-all}',
+    '.dsu-status{font:var(--dsw-font-xxs-12,12px/1.5 system-ui);color:var(--dsw-alias-label-secondary,#555);word-break:break-all;margin:0 12px 12px}',
     '.dsu-error{color:var(--dsw-alias-state-error-primary,#d05)}',
-    '.dsu-bar{width:100%;height:6px;border-radius:999px;background:var(--dsw-alias-interactive-bg-hover,rgba(0,0,0,.06));overflow:hidden}',
+    '.dsu-bar{width:100%;height:6px;border-radius:999px;background:var(--dsw-alias-interactive-bg-hover,rgba(0,0,0,.06));overflow:hidden;margin:0 12px 8px}',
     '.dsu-bar-fill{height:100%;background:var(--dsw-alias-state-business-primary,#4d6bfe);transition:width .15s ease}',
-    '.dsu-list{margin:4px 0 0;padding-left:16px;font:var(--dsw-font-xxs-12,12px/1.6 system-ui);color:var(--dsw-alias-label-tertiary,#888)}'
+    '.dsu-list{margin:0 12px 12px;padding-left:16px;font:var(--dsw-font-xxs-12,12px/1.6 system-ui);color:var(--dsw-alias-label-tertiary,#888)}'
   ].join('\n')
   const style = document.createElement('style')
   style.id = STYLE_ID
   style.textContent = css
   document.head.appendChild(style)
+}
+
+// ── Directory tree data (reuses better-sidebar's fenced /sidebar/api) ───────
+
+interface DirEntry {
+  name: string
+  path: string
+  isDir: boolean
+  hidden?: boolean
+}
+
+interface DirLevel {
+  entries?: DirEntry[]
+  error?: string
+}
+
+function fsTree(scope: SessionScope, path: string): Promise<DirLevel> {
+  return fetch('/sidebar/api/fs.tree', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ sessionId: scope.sessionId, ...(scope.cwd ? { cwd: scope.cwd } : {}), path })
+  }).then((res) => {
+    return res.json().catch(() => null).then((data) => {
+      if (!res.ok || data === null || data.ok !== true) {
+        throw new Error(data?.error?.message ? String(data.error.message) : `HTTP ${res.status}`)
+      }
+      return data.value as { entries: DirEntry[]; truncated: boolean }
+    })
+  })
 }
 
 // ── Drop collection (files + folders via webkitGetAsEntry) ─────────────────
@@ -147,9 +184,8 @@ interface UploadResult {
   overwrote: boolean
 }
 
-function uploadOne(scope: SessionScope, dir: string | undefined, relPath: string, file: File): Promise<UploadResult> {
-  const params = new URLSearchParams({ sessionId: scope.sessionId, name: relPath })
-  if (dir) params.set('dir', dir)
+function uploadOne(scope: SessionScope, dir: string, relPath: string, file: File): Promise<UploadResult> {
+  const params = new URLSearchParams({ sessionId: scope.sessionId, name: relPath, dir })
   if (scope.cwd) params.set('cwd', scope.cwd)
   return fetch(`/sidebar-upload/upload?${params.toString()}`, {
     method: 'POST',
@@ -172,6 +208,12 @@ function hasFiles(event: React.DragEvent): boolean {
   return Array.prototype.indexOf.call(types, 'Files') !== -1
 }
 
+function baseName(path: string): string {
+  const trimmed = path.replace(/[\\/]+$/, '')
+  const at = Math.max(trimmed.lastIndexOf('/'), trimmed.lastIndexOf('\\'))
+  return at === -1 ? trimmed : trimmed.slice(at + 1)
+}
+
 // ── Upload tab component ────────────────────────────────────────────────────
 
 function UploadView(props: UploadTabProps): ReturnType<typeof createElement> {
@@ -179,16 +221,24 @@ function UploadView(props: UploadTabProps): ReturnType<typeof createElement> {
   const sessionId = scope.sessionId
   const cwd = scope.cwd !== undefined && scope.cwd !== '' ? scope.cwd : undefined
 
+  // Directory tree state.
+  const [tree, setTree] = useState<Record<string, DirLevel>>({})
+  const treeRef = useRef<Record<string, DirLevel>>({})
+  const [expanded, setExpanded] = useState<string[]>([])
+  const [selected, setSelected] = useState<string | null>(null)
+  const [resolvedCwd, setResolvedCwd] = useState<string | null>(null)
+
+  // Upload state.
   const dragDepth = useRef(0)
   const [dragActive, setDragActive] = useState(false)
   const [busy, setBusy] = useState(false)
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
   const [result, setResult] = useState<{ uploaded: number; overwrote: number; failed: string[] } | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [resolvedCwd, setResolvedCwd] = useState<string | null>(cwd ?? null)
 
   useEffect(() => { ensureStyle() }, [])
 
+  // Resolve the workspace path for the tree root when the scope summary lacks it.
   useEffect(() => {
     if (sessionId === '' || cwd !== undefined) return
     let cancelled = false
@@ -202,7 +252,37 @@ function UploadView(props: UploadTabProps): ReturnType<typeof createElement> {
     return () => { cancelled = true }
   }, [sessionId, cwd])
 
-  const targetDir = cwd ?? resolvedCwd ?? undefined
+  const root = cwd ?? resolvedCwd ?? undefined
+
+  const setTreeLevel = useCallback((dir: string, level: DirLevel) => {
+    treeRef.current = { ...treeRef.current, [dir]: level }
+    setTree(treeRef.current)
+  }, [])
+
+  const loadDir = useCallback((dir: string) => {
+    if (treeRef.current[dir] !== undefined) return
+    setTreeLevel(dir, {})
+    fsTree(scope, dir).then((listing) => {
+      setTreeLevel(dir, { entries: listing.entries })
+    }).catch((e: unknown) => {
+      setTreeLevel(dir, { error: e instanceof Error ? e.message : String(e) })
+    })
+  }, [scope, setTreeLevel])
+
+  // Load the root and the expanded set.
+  useEffect(() => {
+    if (root === undefined) return
+    loadDir(root)
+    for (const dir of expanded) loadDir(dir)
+    if (selected === null) setSelected(root)
+  }, [root, expanded, loadDir, selected])
+
+  const toggleExpand = useCallback((dir: string) => {
+    setExpanded((prev) => prev.includes(dir) ? prev.filter((d) => d !== dir) : [...prev, dir])
+    loadDir(dir)
+  }, [loadDir])
+
+  const targetDir = selected ?? root
 
   const handleDrop = useCallback((event: React.DragEvent) => {
     if (!hasFiles(event)) return
@@ -210,7 +290,7 @@ function UploadView(props: UploadTabProps): ReturnType<typeof createElement> {
     event.stopPropagation()
     dragDepth.current = 0
     setDragActive(false)
-    if (sessionId === '' || busy) return
+    if (sessionId === '' || busy || targetDir === undefined) return
     const dataTransfer = event.dataTransfer
     if (!dataTransfer) return
     collectDroppedFiles(dataTransfer).then((files) => {
@@ -227,7 +307,7 @@ function UploadView(props: UploadTabProps): ReturnType<typeof createElement> {
         if (index >= files.length) return Promise.resolve()
         const i = index++
         const item = files[i]!
-        return uploadOne(scope, cwd, item.relPath, item.file).then((value) => {
+        return uploadOne(scope, targetDir, item.relPath, item.file).then((value) => {
           uploaded += 1
           if (value.overwrote) overwrote += 1
           setProgress({ done: index, total: files.length })
@@ -249,7 +329,7 @@ function UploadView(props: UploadTabProps): ReturnType<typeof createElement> {
       setProgress(null)
       setError(e instanceof Error ? e.message : String(e))
     })
-  }, [sessionId, scope, cwd, busy])
+  }, [sessionId, scope, targetDir, busy])
 
   const onDragOver = useCallback((event: React.DragEvent) => {
     if (!hasFiles(event)) return
@@ -274,13 +354,72 @@ function UploadView(props: UploadTabProps): ReturnType<typeof createElement> {
     if (dragDepth.current === 0) setDragActive(false)
   }, [])
 
+  const renderLevel = (dir: string, depth: number): ReturnType<typeof createElement>[] => {
+    const level = tree[dir]
+    if (level === undefined) {
+      return [createElement('div', { key: `${dir}:loading`, className: 'dsu-empty' }, label('加载中…', 'Loading…'))]
+    }
+    if (level.error !== undefined) {
+      return [createElement('div', { key: `${dir}:error`, className: 'dsu-empty dsu-error' }, level.error)]
+    }
+    const dirs = (level.entries ?? []).filter((entry) => entry.isDir)
+    if (dirs.length === 0) return []
+    return dirs.map((entry) => {
+      const isOpen = expanded.includes(entry.path)
+      const isSelected = selected === entry.path
+      const children = isOpen ? renderLevel(entry.path, depth + 1) : []
+      return createElement('div', { key: entry.path },
+        createElement('div', {
+          className: 'dsu-row' + (isSelected ? ' dsu-selected' : ''),
+          style: { paddingLeft: `${depth * 18 + 6}px` }
+        },
+          createElement('button', {
+            className: 'dsu-chevron',
+            type: 'button',
+            onClick: (event: React.MouseEvent) => { event.stopPropagation(); toggleExpand(entry.path) }
+          }, isOpen ? '▾' : '▸'),
+          createElement('svg', { viewBox: '0 0 24 24', width: 14, height: 14, fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': 'true' },
+            createElement('path', { d: 'M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z' })
+          ),
+          createElement('button', {
+            className: 'dsu-name',
+            type: 'button',
+            title: entry.path,
+            onClick: () => setSelected(entry.path)
+          }, entry.name)
+        ),
+        ...children
+      )
+    })
+  }
+
   if (sessionId === '') {
     return createElement('div', { className: 'dsu-root' },
-      createElement('p', { className: 'dsu-hint' }, label('选择一个会话以使用上传', 'Select a conversation to upload files'))
+      createElement('div', { className: 'dsu-empty' }, label('选择一个会话以使用上传', 'Select a conversation to upload files'))
     )
   }
 
   const children: ReturnType<typeof createElement>[] = []
+
+  if (targetDir !== undefined) {
+    children.push(createElement('div', { className: 'dsu-head' },
+      `${label('上传目标：', 'Upload target: ')}${targetDir}`
+    ))
+  }
+
+  // Root row (always expanded, selectable).
+  if (root !== undefined) {
+    const isRootSelected = selected === root
+    children.push(createElement('div', { className: 'dsu-tree' },
+      createElement('div', { className: 'dsu-row' + (isRootSelected ? ' dsu-selected' : ''), style: { paddingLeft: '6px' } },
+        createElement('svg', { viewBox: '0 0 24 24', width: 14, height: 14, fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': 'true' },
+          createElement('path', { d: 'M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z' })
+        ),
+        createElement('button', { className: 'dsu-name', type: 'button', title: root, onClick: () => setSelected(root) }, baseName(root))
+      ),
+      ...renderLevel(root, 1)
+    ))
+  }
 
   children.push(createElement('div', {
     className: 'dsu-zone' + (dragActive ? ' dsu-active' : ''),
@@ -297,12 +436,6 @@ function UploadView(props: UploadTabProps): ReturnType<typeof createElement> {
     createElement('div', { className: 'dsu-title' }, label('将文件或文件夹拖到此处', 'Drop files or folders here')),
     createElement('div', { className: 'dsu-sub' }, label('支持任意文件；文件夹会按原目录结构上传', 'Any file type is supported; folders keep their structure'))
   ))
-
-  if (targetDir) {
-    children.push(createElement('p', { className: 'dsu-status' },
-      label('上传到：', 'Uploading to: ') + targetDir
-    ))
-  }
 
   if (busy && progress) {
     const percent = progress.total === 0 ? 0 : Math.round((progress.done / progress.total) * 100)
