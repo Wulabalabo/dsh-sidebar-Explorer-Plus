@@ -1,16 +1,19 @@
 # dsh-sidebar-upload
 
-一个 `dsh-better-sidebar` 的**消费插件**：在侧边栏新增一个「上传」tab，内置一棵**固定在工作区（cwd）内的文件夹树**——先选中要上传到的目录，再把**任意文件或整个文件夹**拖进去，按原目录结构落盘。
+一个 `dsh-better-sidebar` 的**消费插件**：在侧边栏新增一个「文件」tab，内置一棵**固定在工作区（cwd）内的文件树**，提供真正的文件管理能力——上传、移动、删除、重命名、新建文件夹。它补充了 better-sidebar 自带 Explorer 缺失的「写」操作（Explorer 只读）。
 
 它通过 `dsh-better-sidebar` 公开的 `ctx.betterSidebar.registerTab` 服务注册，是一个独立插件，不改动 better-sidebar 源码。
 
 ## 功能
 
-- 🗂️ 拖拽**任意文件**（文本 / 图片 / PDF / 二进制…）上传
+- 🗂️ 拖拽**任意文件**（文本 / 图片 / PDF / 二进制…）上传，上传到指定目录
 - 📁 拖拽**整个文件夹**上传，按原目录结构落盘
-- 📂 文件夹树选择上传目标（始终锁定在当前项目工作区内，不会越出 cwd）
-- 📊 上传进度条 + 结果汇总（新增 / 覆盖 / 失败列表）
-- 🔒 与 `/api` 相同的浏览器信任围栏 + 会话 cwd 路径约束（防目录穿越）
+- 📂 文件树展示文件与文件夹；点文件在侧边栏编辑器打开
+- ↕️ **拖拽移动**：把文件/文件夹拖到另一个文件夹上移动（冲突报错跳过，不覆盖）
+- ✏️ **重命名**：右键 → 重命名
+- 🗑️ **删除**：右键 → 删除（永久删除 + 二次确认；文件夹递归删除）
+- ➕ **新建文件夹**：在选中目录下建子目录
+- 🔒 与 `/api` 相同的浏览器信任围栏 + 会话 cwd 路径约束（所有操作锁定在当前项目内，防目录穿越）
 
 ## 安装
 
@@ -20,16 +23,16 @@
 dsh plugin --profile web add github:Wulabalabo/dsh-sidebar-upload
 ```
 
-装完**重启 `dsh web`**（本插件含 host 半），再**浏览器硬刷新**（Cmd/Ctrl+Shift+R），侧边栏 `+` 菜单里就会出现「上传」tab。
+装完**重启 `dsh web`**（本插件含 host 半），再**浏览器硬刷新**（Cmd/Ctrl+Shift+R），侧边栏 `+` 菜单里就会出现「文件」tab。
 
 ## 工作原理
 
 | 半边 | 作用 |
 |---|---|
-| host（`src/index.ts` → `lib/index.js`） | 注册 `POST /sidebar-upload/upload` 原始字节上传路由，写入会话工作区 |
-| client（`src/client/index.tsx` → `lib/client.js`） | `ctx.betterSidebar.registerTab` 注册 `sidebar-upload` tab，渲染文件夹树 + 拖拽区 |
+| host（`src/index.ts` → `lib/index.js`） | 注册 `/sidebar-upload/*` 路由：`upload`（原始字节）/ `delete` / `move` / `rename` / `mkdir`（JSON），全部限定在会话 cwd 内 |
+| client（`src/client/index.tsx` → `lib/client.js`） | `ctx.betterSidebar.registerTab` 注册 `sidebar-upload` tab，渲染文件树 + 拖拽区 + 右键菜单 |
 
-上传路由契约：`POST /sidebar-upload/upload?sessionId=<id>&dir=<绝对目录>&name=<相对路径>`，body 为原始字节。响应 `{ ok, value: { path, bytes, overwrote } }`。
+路由契约：`POST /sidebar-upload/<op>`；`upload` 用 query（`sessionId`/`dir`/`name`）+ 原始 body，其余用 JSON body（`sessionId`/`path`/`from`/`to`/`name`）。响应统一 `{ ok, value }`。
 
 ## 开发 / 构建
 

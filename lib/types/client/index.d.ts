@@ -1,11 +1,13 @@
 /**
  * dsh-sidebar-upload client half.
  *
- * Registers one tab ("上传" / "Upload") in dsh-better-sidebar through the
- * public `ctx.betterSidebar.registerTab` service. The tab shows a folder tree
- * rooted at the conversation workspace (cwd) — pick a directory, then drop
- * files or folders onto the panel to upload them (preserving folder
- * structure) into that directory via the plugin's own /sidebar-upload route.
+ * Registers a file-manager tab ("文件" / "Files") in dsh-better-sidebar through
+ * the public `ctx.betterSidebar.registerTab` service. The tab shows a tree of
+ * the conversation workspace (cwd) with real file operations:
+ * - pick a directory as the upload target and drop files/folders in;
+ * - drag a file/folder onto another folder to MOVE it;
+ * - right-click a row to RENAME or DELETE;
+ * - create a new folder under the selected directory.
  */
 import { createElement } from 'react';
 interface SessionScope {
