@@ -19,6 +19,7 @@ interface SessionScope {
 interface UploadTabProps {
   scope: SessionScope
   visible?: boolean
+  onOpenFile?: (path: string) => void
 }
 
 /** The subset of dsh-better-sidebar's TabDescriptor this plugin declares. */
@@ -35,6 +36,7 @@ interface UploadClientContext {
   effect(fn: () => void | (() => void), label?: string): void
   betterSidebar: {
     registerTab(descriptor: UploadTabDescriptor): () => void
+    openFile?: (scope: SessionScope, path: string, title?: string) => void
   }
 }
 
@@ -67,6 +69,8 @@ function ensureStyle(): void {
     '.dsu-row.dsu-selected{background:var(--dsw-alias-state-business-tertiary,rgba(77,107,254,.1));color:var(--dsw-alias-state-business-primary,#4d6bfe)}',
     '.dsu-chevron{flex:none;width:18px;height:18px;border:none;background:transparent;color:var(--dsw-alias-label-tertiary,#888);cursor:pointer;padding:0;font-size:11px;line-height:18px;text-align:center}',
     '.dsu-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border:none;background:transparent;color:inherit;cursor:pointer;padding:0;text-align:left;font:inherit}',
+    '.dsu-file .dsu-name{color:var(--dsw-alias-label-secondary,#555)}',
+    '.dsu-hidden{opacity:.5}',
     '.dsu-empty{padding:16px;font:var(--dsw-font-xxs-12,12px/1.5 system-ui);color:var(--dsw-alias-label-tertiary,#888);text-align:center}',
     '.dsu-zone{margin:6px 12px 12px;border:1.5px dashed var(--dsw-alias-border-l1,rgba(128,128,128,.5));border-radius:12px;padding:20px;text-align:center;transition:border-color .12s ease,background .12s ease}',
     '.dsu-zone.dsu-active{border-color:var(--dsw-alias-state-business-primary,#4d6bfe);background:var(--dsw-alias-state-business-tertiary,rgba(77,107,254,.08))}',
@@ -214,12 +218,26 @@ function baseName(path: string): string {
   return at === -1 ? trimmed : trimmed.slice(at + 1)
 }
 
+function folderIcon(): ReturnType<typeof createElement> {
+  return createElement('svg', { viewBox: '0 0 24 24', width: 14, height: 14, fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': 'true' },
+    createElement('path', { d: 'M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z' })
+  )
+}
+
+function fileIcon(): ReturnType<typeof createElement> {
+  return createElement('svg', { viewBox: '0 0 24 24', width: 14, height: 14, fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': 'true' },
+    createElement('path', { d: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z' }),
+    createElement('polyline', { points: '14 2 14 8 20 8' })
+  )
+}
+
 // ── Upload tab component ────────────────────────────────────────────────────
 
 function UploadView(props: UploadTabProps): ReturnType<typeof createElement> {
   const scope = props.scope ?? { sessionId: '' }
   const sessionId = scope.sessionId
   const cwd = scope.cwd !== undefined && scope.cwd !== '' ? scope.cwd : undefined
+  const onOpenFile = props.onOpenFile
 
   // Directory tree state.
   const [tree, setTree] = useState<Record<string, DirLevel>>({})
@@ -362,33 +380,47 @@ function UploadView(props: UploadTabProps): ReturnType<typeof createElement> {
     if (level.error !== undefined) {
       return [createElement('div', { key: `${dir}:error`, className: 'dsu-empty dsu-error' }, level.error)]
     }
-    const dirs = (level.entries ?? []).filter((entry) => entry.isDir)
-    if (dirs.length === 0) return []
-    return dirs.map((entry) => {
-      const isOpen = expanded.includes(entry.path)
-      const isSelected = selected === entry.path
-      const children = isOpen ? renderLevel(entry.path, depth + 1) : []
-      return createElement('div', { key: entry.path },
-        createElement('div', {
-          className: 'dsu-row' + (isSelected ? ' dsu-selected' : ''),
-          style: { paddingLeft: `${depth * 18 + 6}px` }
-        },
-          createElement('button', {
-            className: 'dsu-chevron',
-            type: 'button',
-            onClick: (event: React.MouseEvent) => { event.stopPropagation(); toggleExpand(entry.path) }
-          }, isOpen ? '▾' : '▸'),
-          createElement('svg', { viewBox: '0 0 24 24', width: 14, height: 14, fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': 'true' },
-            createElement('path', { d: 'M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z' })
+    const entries = level.entries ?? []
+    if (entries.length === 0) return []
+    return entries.map((entry) => {
+      const indent = { paddingLeft: `${depth * 18 + 6}px` }
+      if (entry.isDir) {
+        const isOpen = expanded.includes(entry.path)
+        const isSelected = selected === entry.path
+        const children = isOpen ? renderLevel(entry.path, depth + 1) : []
+        return createElement('div', { key: entry.path },
+          createElement('div', {
+            className: 'dsu-row' + (isSelected ? ' dsu-selected' : ''),
+            style: indent
+          },
+            createElement('button', {
+              className: 'dsu-chevron',
+              type: 'button',
+              onClick: (event: React.MouseEvent) => { event.stopPropagation(); toggleExpand(entry.path) }
+            }, isOpen ? '▾' : '▸'),
+            folderIcon(),
+            createElement('button', {
+              className: 'dsu-name',
+              type: 'button',
+              title: entry.path,
+              onClick: () => setSelected(entry.path)
+            }, entry.name)
           ),
-          createElement('button', {
-            className: 'dsu-name',
-            type: 'button',
-            title: entry.path,
-            onClick: () => setSelected(entry.path)
-          }, entry.name)
-        ),
-        ...children
+          ...children
+        )
+      }
+      return createElement('div', {
+        key: entry.path,
+        className: 'dsu-row dsu-file' + (entry.hidden ? ' dsu-hidden' : ''),
+        style: indent
+      },
+        fileIcon(),
+        createElement('button', {
+          className: 'dsu-name',
+          type: 'button',
+          title: entry.path,
+          onClick: onOpenFile !== undefined ? () => onOpenFile(entry.path) : undefined
+        }, entry.name)
       )
     })
   }
@@ -412,9 +444,7 @@ function UploadView(props: UploadTabProps): ReturnType<typeof createElement> {
     const isRootSelected = selected === root
     children.push(createElement('div', { className: 'dsu-tree' },
       createElement('div', { className: 'dsu-row' + (isRootSelected ? ' dsu-selected' : ''), style: { paddingLeft: '6px' } },
-        createElement('svg', { viewBox: '0 0 24 24', width: 14, height: 14, fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': 'true' },
-          createElement('path', { d: 'M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z' })
-        ),
+        folderIcon(),
         createElement('button', { className: 'dsu-name', type: 'button', title: root, onClick: () => setSelected(root) }, baseName(root))
       ),
       ...renderLevel(root, 1)
@@ -479,6 +509,16 @@ export function apply(ctx: UploadClientContext): void {
     ),
     order: 60,
     single: true,
-    component: (props) => createElement(UploadView, { scope: props.scope ?? { sessionId: '' }, visible: props.visible })
+    component: (props) => {
+      const scope = props.scope ?? { sessionId: '' }
+      const openFile = ctx.betterSidebar.openFile
+      return createElement(UploadView, {
+        scope,
+        visible: props.visible,
+        onOpenFile: typeof openFile === 'function' && props.scope !== undefined
+          ? (path: string) => openFile(props.scope as SessionScope, path)
+          : undefined
+      })
+    }
   }), 'dsh-sidebar-upload: register upload tab')
 }

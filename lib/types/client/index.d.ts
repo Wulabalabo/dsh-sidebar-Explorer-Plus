@@ -28,6 +28,7 @@ interface UploadClientContext {
     effect(fn: () => void | (() => void), label?: string): void;
     betterSidebar: {
         registerTab(descriptor: UploadTabDescriptor): () => void;
+        openFile?: (scope: SessionScope, path: string, title?: string) => void;
     };
 }
 export declare const inject: string[];
