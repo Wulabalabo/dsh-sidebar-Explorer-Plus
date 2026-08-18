@@ -1,0 +1,9 @@
+# dsh-sidebar-upload bundle patch.
+#
+# Mounted through the profile's bundle stack (`dsh.profile.bundles`): the
+# profile boot merges this single `insert` of the plugin row exactly like a
+# manual cordis.patch.yml mount line. No profile file edits are needed beyond
+# adding the package to the profile's dependencies + bundles.
+- insert:
+    - id: sidebar-upload
+      name: 'dsh-sidebar-upload'
