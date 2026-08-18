@@ -1,4 +1,4 @@
-export declare const name = "dsh-sidebar-upload";
+export declare const name = "dsh-sidebar-explorer-plus";
 export declare const inject: string[];
 /** Host config (filled from the profile row's `config`, defaults applied in code). */
 export interface Config {

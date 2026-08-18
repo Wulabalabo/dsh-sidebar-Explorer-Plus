@@ -1,5 +1,5 @@
 /**
- * dsh-sidebar-upload client half.
+ * dsh-sidebar-explorer-plus client half.
  *
  * Registers a file-manager tab ("文件" / "Files") in dsh-better-sidebar through
  * the public `ctx.betterSidebar.registerTab` service. The tab shows a tree of
@@ -58,41 +58,41 @@ function label(zh: string, en: string): string {
 
 // ── Scoped stylesheet (injected once) ───────────────────────────────────────
 
-const STYLE_ID = 'dsh-sidebar-upload-style'
+const STYLE_ID = 'dsh-sidebar-explorer-plus-style'
 
 function ensureStyle(): void {
   if (document.getElementById(STYLE_ID)) return
   const css = [
-    '.dsu-root{display:flex;flex-direction:column;height:100%;min-height:0;box-sizing:border-box;overflow-y:auto}',
-    '.dsu-head{padding:12px 12px 6px;font:var(--dsw-font-xxs-12,12px/1.5 system-ui);color:var(--dsw-alias-label-tertiary,#888);word-break:break-all}',
-    '.dsu-toolbar{display:flex;align-items:center;gap:8px;padding:4px 12px}',
-    '.dsu-newbtn{height:26px;padding:0 10px;border:1px solid var(--dsw-alias-border-l1,rgba(128,128,128,.4));border-radius:999px;background:var(--dsw-alias-bg-layer-2,#fff);color:var(--dsw-alias-label-primary,#222);font:var(--dsw-font-xxs-12,12px/1.4 system-ui);cursor:pointer}',
-    '.dsu-newbtn:hover{background:var(--dsw-alias-interactive-bg-hover,rgba(0,0,0,.05))}',
-    '.dsu-tree{flex:1;min-height:0;overflow-y:auto;padding:0 6px 8px}',
-    '.dsu-row{display:flex;align-items:center;gap:4px;height:30px;border-radius:8px;padding:0 6px;cursor:pointer;color:var(--dsw-alias-label-primary,#222);font:var(--dsw-font-s-14,14px/1.4 system-ui);box-sizing:border-box}',
-    '.dsu-row:hover{background:var(--dsw-alias-interactive-bg-hover,rgba(0,0,0,.05))}',
-    '.dsu-row.dsu-selected{background:var(--dsw-alias-state-business-tertiary,rgba(77,107,254,.1));color:var(--dsw-alias-state-business-primary,#4d6bfe)}',
-    '.dsu-row.dsu-drop{outline:1.5px solid var(--dsw-alias-state-business-primary,#4d6bfe);outline-offset:-1.5px;background:var(--dsw-alias-state-business-tertiary,rgba(77,107,254,.1))}',
-    '.dsu-chevron{flex:none;width:18px;height:18px;border:none;background:transparent;color:var(--dsw-alias-label-tertiary,#888);cursor:pointer;padding:0;font-size:11px;line-height:18px;text-align:center}',
-    '.dsu-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border:none;background:transparent;color:inherit;cursor:pointer;padding:0;text-align:left;font:inherit}',
-    '.dsu-file .dsu-name{color:var(--dsw-alias-label-secondary,#555)}',
-    '.dsu-hidden{opacity:.5}',
-    '.dsu-empty{padding:16px;font:var(--dsw-font-xxs-12,12px/1.5 system-ui);color:var(--dsw-alias-label-tertiary,#888);text-align:center}',
-    '.dsu-zone{margin:6px 12px 12px;border:1.5px dashed var(--dsw-alias-border-l1,rgba(128,128,128,.5));border-radius:12px;padding:20px;text-align:center;transition:border-color .12s ease,background .12s ease}',
-    '.dsu-zone.dsu-active{border-color:var(--dsw-alias-state-business-primary,#4d6bfe);background:var(--dsw-alias-state-business-tertiary,rgba(77,107,254,.08))}',
-    '.dsu-icon{display:block;width:32px;height:32px;margin:0 auto 8px;color:var(--dsw-alias-label-tertiary,#888)}',
-    '.dsu-zone.dsu-active .dsu-icon{color:var(--dsw-alias-state-business-primary,#4d6bfe)}',
-    '.dsu-title{font:var(--dsw-font-s-strong-14,600 14px/1.4 system-ui);color:var(--dsw-alias-label-primary,#222)}',
-    '.dsu-sub{font:var(--dsw-font-xxs-12,12px/1.5 system-ui);color:var(--dsw-alias-label-tertiary,#888)}',
-    '.dsu-status{font:var(--dsw-font-xxs-12,12px/1.5 system-ui);color:var(--dsw-alias-label-secondary,#555);word-break:break-all;margin:0 12px 12px}',
-    '.dsu-error{color:var(--dsw-alias-state-error-primary,#d05)}',
-    '.dsu-bar{width:100%;height:6px;border-radius:999px;background:var(--dsw-alias-interactive-bg-hover,rgba(0,0,0,.06));overflow:hidden;margin:0 12px 8px}',
-    '.dsu-bar-fill{height:100%;background:var(--dsw-alias-state-business-primary,#4d6bfe);transition:width .15s ease}',
-    '.dsu-list{margin:0 12px 12px;padding-left:16px;font:var(--dsw-font-xxs-12,12px/1.6 system-ui);color:var(--dsw-alias-label-tertiary,#888)}',
-    '.dsu-menu{position:fixed;z-index:2147483000;min-width:140px;padding:4px;background:var(--dsw-alias-bg-layer-2,#fff);border:1px solid var(--dsw-alias-border-l1,rgba(128,128,128,.3));border-radius:10px;box-shadow:0 6px 24px rgba(0,0,0,.14)}',
-    '.dsu-menu-item{display:block;width:100%;height:30px;padding:0 10px;border:none;background:transparent;color:var(--dsw-alias-label-primary,#222);font:var(--dsw-font-s-14,14px/1.4 system-ui);text-align:left;cursor:pointer;border-radius:6px}',
-    '.dsu-menu-item:hover{background:var(--dsw-alias-interactive-bg-hover,rgba(0,0,0,.05))}',
-    '.dsu-menu-item.dsu-danger{color:var(--dsw-alias-state-error-primary,#d05)}'
+    '.dse-root{display:flex;flex-direction:column;height:100%;min-height:0;box-sizing:border-box;overflow-y:auto}',
+    '.dse-head{padding:12px 12px 6px;font:var(--dsw-font-xxs-12,12px/1.5 system-ui);color:var(--dsw-alias-label-tertiary,#888);word-break:break-all}',
+    '.dse-toolbar{display:flex;align-items:center;gap:8px;padding:4px 12px}',
+    '.dse-newbtn{height:26px;padding:0 10px;border:1px solid var(--dsw-alias-border-l1,rgba(128,128,128,.4));border-radius:999px;background:var(--dsw-alias-bg-layer-2,#fff);color:var(--dsw-alias-label-primary,#222);font:var(--dsw-font-xxs-12,12px/1.4 system-ui);cursor:pointer}',
+    '.dse-newbtn:hover{background:var(--dsw-alias-interactive-bg-hover,rgba(0,0,0,.05))}',
+    '.dse-tree{flex:1;min-height:0;overflow-y:auto;padding:0 6px 8px}',
+    '.dse-row{display:flex;align-items:center;gap:4px;height:30px;border-radius:8px;padding:0 6px;cursor:pointer;color:var(--dsw-alias-label-primary,#222);font:var(--dsw-font-s-14,14px/1.4 system-ui);box-sizing:border-box}',
+    '.dse-row:hover{background:var(--dsw-alias-interactive-bg-hover,rgba(0,0,0,.05))}',
+    '.dse-row.dse-selected{background:var(--dsw-alias-state-business-tertiary,rgba(77,107,254,.1));color:var(--dsw-alias-state-business-primary,#4d6bfe)}',
+    '.dse-row.dse-drop{outline:1.5px solid var(--dsw-alias-state-business-primary,#4d6bfe);outline-offset:-1.5px;background:var(--dsw-alias-state-business-tertiary,rgba(77,107,254,.1))}',
+    '.dse-chevron{flex:none;width:18px;height:18px;border:none;background:transparent;color:var(--dsw-alias-label-tertiary,#888);cursor:pointer;padding:0;font-size:11px;line-height:18px;text-align:center}',
+    '.dse-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border:none;background:transparent;color:inherit;cursor:pointer;padding:0;text-align:left;font:inherit}',
+    '.dse-file .dse-name{color:var(--dsw-alias-label-secondary,#555)}',
+    '.dse-hidden{opacity:.5}',
+    '.dse-empty{padding:16px;font:var(--dsw-font-xxs-12,12px/1.5 system-ui);color:var(--dsw-alias-label-tertiary,#888);text-align:center}',
+    '.dse-zone{margin:6px 12px 12px;border:1.5px dashed var(--dsw-alias-border-l1,rgba(128,128,128,.5));border-radius:12px;padding:20px;text-align:center;transition:border-color .12s ease,background .12s ease}',
+    '.dse-zone.dse-active{border-color:var(--dsw-alias-state-business-primary,#4d6bfe);background:var(--dsw-alias-state-business-tertiary,rgba(77,107,254,.08))}',
+    '.dse-icon{display:block;width:32px;height:32px;margin:0 auto 8px;color:var(--dsw-alias-label-tertiary,#888)}',
+    '.dse-zone.dse-active .dse-icon{color:var(--dsw-alias-state-business-primary,#4d6bfe)}',
+    '.dse-title{font:var(--dsw-font-s-strong-14,600 14px/1.4 system-ui);color:var(--dsw-alias-label-primary,#222)}',
+    '.dse-sub{font:var(--dsw-font-xxs-12,12px/1.5 system-ui);color:var(--dsw-alias-label-tertiary,#888)}',
+    '.dse-status{font:var(--dsw-font-xxs-12,12px/1.5 system-ui);color:var(--dsw-alias-label-secondary,#555);word-break:break-all;margin:0 12px 12px}',
+    '.dse-error{color:var(--dsw-alias-state-error-primary,#d05)}',
+    '.dse-bar{width:100%;height:6px;border-radius:999px;background:var(--dsw-alias-interactive-bg-hover,rgba(0,0,0,.06));overflow:hidden;margin:0 12px 8px}',
+    '.dse-bar-fill{height:100%;background:var(--dsw-alias-state-business-primary,#4d6bfe);transition:width .15s ease}',
+    '.dse-list{margin:0 12px 12px;padding-left:16px;font:var(--dsw-font-xxs-12,12px/1.6 system-ui);color:var(--dsw-alias-label-tertiary,#888)}',
+    '.dse-menu{position:fixed;z-index:2147483000;min-width:140px;padding:4px;background:var(--dsw-alias-bg-layer-2,#fff);border:1px solid var(--dsw-alias-border-l1,rgba(128,128,128,.3));border-radius:10px;box-shadow:0 6px 24px rgba(0,0,0,.14)}',
+    '.dse-menu-item{display:block;width:100%;height:30px;padding:0 10px;border:none;background:transparent;color:var(--dsw-alias-label-primary,#222);font:var(--dsw-font-s-14,14px/1.4 system-ui);text-align:left;cursor:pointer;border-radius:6px}',
+    '.dse-menu-item:hover{background:var(--dsw-alias-interactive-bg-hover,rgba(0,0,0,.05))}',
+    '.dse-menu-item.dse-danger{color:var(--dsw-alias-state-error-primary,#d05)}'
   ].join('\n')
   const style = document.createElement('style')
   style.id = STYLE_ID
@@ -129,10 +129,10 @@ function fsTree(scope: SessionScope, path: string): Promise<DirLevel> {
   })
 }
 
-// ── File operations (host /sidebar-upload/*) ────────────────────────────────
+// ── File operations (host /sidebar-explorer/*) ────────────────────────────────
 
 function apiJson(method: string, body: Record<string, unknown>): Promise<unknown> {
-  return fetch(`/sidebar-upload/${method}`, {
+  return fetch(`/sidebar-explorer/${method}`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body)
@@ -234,7 +234,7 @@ interface UploadResult {
 function uploadOne(scope: SessionScope, dir: string, relPath: string, file: File): Promise<UploadResult> {
   const params = new URLSearchParams({ sessionId: scope.sessionId, name: relPath, dir })
   if (scope.cwd) params.set('cwd', scope.cwd)
-  return fetch(`/sidebar-upload/upload?${params.toString()}`, {
+  return fetch(`/sidebar-explorer/upload?${params.toString()}`, {
     method: 'POST',
     headers: { 'content-type': 'application/octet-stream' },
     body: file
@@ -540,10 +540,10 @@ function UploadView(props: UploadTabProps): ReturnType<typeof createElement> {
   const renderLevel = (dir: string, depth: number): ReturnType<typeof createElement>[] => {
     const level = tree[dir]
     if (level === undefined) {
-      return [createElement('div', { key: `${dir}:loading`, className: 'dsu-empty' }, label('加载中…', 'Loading…'))]
+      return [createElement('div', { key: `${dir}:loading`, className: 'dse-empty' }, label('加载中…', 'Loading…'))]
     }
     if (level.error !== undefined) {
-      return [createElement('div', { key: `${dir}:error`, className: 'dsu-empty dsu-error' }, level.error)]
+      return [createElement('div', { key: `${dir}:error`, className: 'dse-empty dse-error' }, level.error)]
     }
     const entries = level.entries ?? []
     if (entries.length === 0) return []
@@ -557,7 +557,7 @@ function UploadView(props: UploadTabProps): ReturnType<typeof createElement> {
         const children = isOpen ? renderLevel(entry.path, depth + 1) : []
         return createElement('div', { key: entry.path },
           createElement('div', {
-            className: 'dsu-row' + (isSelected ? ' dsu-selected' : '') + (isDrop ? ' dsu-drop' : ''),
+            className: 'dse-row' + (isSelected ? ' dse-selected' : '') + (isDrop ? ' dse-drop' : ''),
             style: indent,
             ...draggable,
             onDragOver: (event: React.DragEvent) => onDirDragOver(event, entry.path),
@@ -565,13 +565,13 @@ function UploadView(props: UploadTabProps): ReturnType<typeof createElement> {
             onContextMenu: (event: React.MouseEvent) => openMenu(event, entry.path, entry.name, true)
           },
             createElement('button', {
-              className: 'dsu-chevron',
+              className: 'dse-chevron',
               type: 'button',
               onClick: (event: React.MouseEvent) => { event.stopPropagation(); toggleExpand(entry.path) }
             }, isOpen ? '▾' : '▸'),
             folderIcon(),
             createElement('button', {
-              className: 'dsu-name',
+              className: 'dse-name',
               type: 'button',
               title: entry.path,
               onClick: () => setSelected(entry.path)
@@ -582,14 +582,14 @@ function UploadView(props: UploadTabProps): ReturnType<typeof createElement> {
       }
       return createElement('div', {
         key: entry.path,
-        className: 'dsu-row dsu-file' + (entry.hidden ? ' dsu-hidden' : ''),
+        className: 'dse-row dse-file' + (entry.hidden ? ' dse-hidden' : ''),
         style: indent,
         ...draggable,
         onContextMenu: (event: React.MouseEvent) => openMenu(event, entry.path, entry.name, false)
       },
         fileIcon(),
         createElement('button', {
-          className: 'dsu-name',
+          className: 'dse-name',
           type: 'button',
           title: entry.path,
           onClick: onOpenFile !== undefined ? () => onOpenFile(entry.path) : undefined
@@ -599,22 +599,22 @@ function UploadView(props: UploadTabProps): ReturnType<typeof createElement> {
   }
 
   if (sessionId === '') {
-    return createElement('div', { className: 'dsu-root' },
-      createElement('div', { className: 'dsu-empty' }, label('选择一个会话以使用文件管理', 'Select a conversation to manage files'))
+    return createElement('div', { className: 'dse-root' },
+      createElement('div', { className: 'dse-empty' }, label('选择一个会话以使用文件管理', 'Select a conversation to manage files'))
     )
   }
 
   const children: ReturnType<typeof createElement>[] = []
 
   if (targetDir !== undefined) {
-    children.push(createElement('div', { className: 'dsu-head' },
+    children.push(createElement('div', { className: 'dse-head' },
       `${label('上传目标：', 'Upload target: ')}${targetDir}`
     ))
   }
 
-  children.push(createElement('div', { className: 'dsu-toolbar' },
+  children.push(createElement('div', { className: 'dse-toolbar' },
     createElement('button', {
-      className: 'dsu-newbtn',
+      className: 'dse-newbtn',
       type: 'button',
       disabled: targetDir === undefined,
       onClick: () => targetDir !== undefined && doMkdir(targetDir)
@@ -625,43 +625,43 @@ function UploadView(props: UploadTabProps): ReturnType<typeof createElement> {
   if (root !== undefined) {
     const isRootSelected = selected === root
     const isRootDrop = dragOverDir === root
-    children.push(createElement('div', { className: 'dsu-tree' },
+    children.push(createElement('div', { className: 'dse-tree' },
       createElement('div', {
-        className: 'dsu-row' + (isRootSelected ? ' dsu-selected' : '') + (isRootDrop ? ' dsu-drop' : ''),
+        className: 'dse-row' + (isRootSelected ? ' dse-selected' : '') + (isRootDrop ? ' dse-drop' : ''),
         style: { paddingLeft: '6px' },
         onDragOver: (event: React.DragEvent) => onDirDragOver(event, root),
         onDrop: (event: React.DragEvent) => onDirDrop(event, root),
         onContextMenu: (event: React.MouseEvent) => openMenu(event, root, baseName(root), true)
       },
         folderIcon(),
-        createElement('button', { className: 'dsu-name', type: 'button', title: root, onClick: () => setSelected(root) }, baseName(root))
+        createElement('button', { className: 'dse-name', type: 'button', title: root, onClick: () => setSelected(root) }, baseName(root))
       ),
       ...renderLevel(root, 1)
     ))
   }
 
   children.push(createElement('div', {
-    className: 'dsu-zone' + (dragActive ? ' dsu-active' : ''),
+    className: 'dse-zone' + (dragActive ? ' dse-active' : ''),
     onDragOver,
     onDragEnter,
     onDragLeave,
     onDrop: handleDrop
   },
-    createElement('svg', { className: 'dsu-icon', viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': 'true' },
+    createElement('svg', { className: 'dse-icon', viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': 'true' },
       createElement('path', { d: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4' }),
       createElement('polyline', { points: '17 8 12 3 7 8' }),
       createElement('line', { x1: '12', y1: '3', x2: '12', y2: '15' })
     ),
-    createElement('div', { className: 'dsu-title' }, label('将文件或文件夹拖到此处上传', 'Drop files or folders here to upload')),
-    createElement('div', { className: 'dsu-sub' }, label('拖到上方文件夹可移动；右键可重命名 / 删除', 'Drag onto a folder to move; right-click to rename / delete'))
+    createElement('div', { className: 'dse-title' }, label('将文件或文件夹拖到此处上传', 'Drop files or folders here to upload')),
+    createElement('div', { className: 'dse-sub' }, label('拖到上方文件夹可移动；右键可重命名 / 删除', 'Drag onto a folder to move; right-click to rename / delete'))
   ))
 
   if (busy && progress) {
     const percent = progress.total === 0 ? 0 : Math.round((progress.done / progress.total) * 100)
-    children.push(createElement('div', { className: 'dsu-bar' },
-      createElement('div', { className: 'dsu-bar-fill', style: { width: `${percent}%` } })
+    children.push(createElement('div', { className: 'dse-bar' },
+      createElement('div', { className: 'dse-bar-fill', style: { width: `${percent}%` } })
     ))
-    children.push(createElement('p', { className: 'dsu-status' },
+    children.push(createElement('p', { className: 'dse-status' },
       `${label('正在上传… ', 'Uploading… ')}${progress.done} / ${progress.total}`
     ))
   }
@@ -669,15 +669,15 @@ function UploadView(props: UploadTabProps): ReturnType<typeof createElement> {
   if (result) {
     let line = `${label('上传完成：新增 ', 'Uploaded: ')}${result.uploaded}${label('，覆盖 ', ', overwrote ')}${result.overwrote}`
     if (result.failed.length > 0) line += label(`，失败 ${result.failed.length}`, `, failed ${result.failed.length}`)
-    children.push(createElement('p', { className: 'dsu-status' }, line))
+    children.push(createElement('p', { className: 'dse-status' }, line))
     if (result.failed.length > 0) {
       const items = result.failed.slice(0, 20).map((name) => createElement('li', { key: name }, name))
-      children.push(createElement('ul', { className: 'dsu-list' }, items))
+      children.push(createElement('ul', { className: 'dse-list' }, items))
     }
   }
 
   if (error) {
-    children.push(createElement('p', { className: 'dsu-status dsu-error' }, error))
+    children.push(createElement('p', { className: 'dse-status dse-error' }, error))
   }
 
   // Context menu.
@@ -686,31 +686,31 @@ function UploadView(props: UploadTabProps): ReturnType<typeof createElement> {
     if (menu.isDir) {
       menuItems.push(createElement('button', {
         key: 'mkdir',
-        className: 'dsu-menu-item',
+        className: 'dse-menu-item',
         type: 'button',
         onClick: () => doMkdir(menu.path)
       }, label('新建文件夹', 'New folder')))
     }
     menuItems.push(createElement('button', {
       key: 'rename',
-      className: 'dsu-menu-item',
+      className: 'dse-menu-item',
       type: 'button',
       onClick: () => doRename(menu)
     }, label('重命名', 'Rename')))
     menuItems.push(createElement('button', {
       key: 'delete',
-      className: 'dsu-menu-item dsu-danger',
+      className: 'dse-menu-item dse-danger',
       type: 'button',
       onClick: () => doDelete(menu)
     }, label('删除', 'Delete')))
     children.push(createElement('div', {
       key: 'menu',
-      className: 'dsu-menu',
+      className: 'dse-menu',
       style: { left: `${menu.x}px`, top: `${menu.y}px` }
     }, menuItems))
   }
 
-  return createElement('div', { className: 'dsu-root' }, children)
+  return createElement('div', { className: 'dse-root' }, children)
 }
 
 // ── Client plugin registration ──────────────────────────────────────────────
@@ -719,7 +719,7 @@ export const inject = ['betterSidebar']
 
 export function apply(ctx: UploadClientContext): void {
   ctx.effect(() => ctx.betterSidebar.registerTab({
-    id: 'sidebar-upload',
+    id: 'sidebar-explorer',
     title: () => label('文件', 'Files'),
     icon: (size: number) => createElement('svg', { viewBox: '0 0 24 24', width: size, height: size, fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': 'true' },
       createElement('path', { d: 'M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z' })
@@ -737,5 +737,5 @@ export function apply(ctx: UploadClientContext): void {
           : undefined
       })
     }
-  }), 'dsh-sidebar-upload: register file-manager tab')
+  }), 'dsh-sidebar-explorer-plus: register file-manager tab')
 }

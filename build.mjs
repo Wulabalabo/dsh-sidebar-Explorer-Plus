@@ -1,5 +1,5 @@
 /**
- * esbuild build for dsh-sidebar-upload.
+ * esbuild build for dsh-sidebar-explorer-plus.
  *
  * Produces:
  * - lib/index.js   — the host half (ESM, node), inlined except node builtins.
@@ -14,7 +14,7 @@
 import { build } from 'esbuild'
 import { writeFileSync } from 'node:fs'
 
-const BUNDLE_ID = 'dsh-sidebar-upload'
+const BUNDLE_ID = 'dsh-sidebar-explorer-plus'
 
 // Host half.
 await build({

@@ -1,7 +1,7 @@
 /**
- * dsh-sidebar-upload host half.
+ * dsh-sidebar-explorer-plus host half.
  *
- * Registers a fenced `/sidebar-upload/*` JSON + raw-bytes API for the client
+ * Registers a fenced `/sidebar-explorer/*` JSON + raw-bytes API for the client
  * file-manager tab: upload (raw bytes), delete, move, rename, and mkdir. Every
  * operation is browser-trust fenced (Host-header loopback or the web runtime's
  * `trustedHosts`) and confined to the conversation's working directory via
@@ -10,7 +10,7 @@
 import { mkdir, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 
-export const name = 'dsh-sidebar-upload'
+export const name = 'dsh-sidebar-explorer-plus'
 export const inject = ['webServer', 'sessions', 'webRuntime']
 
 /** Default cap of one uploaded file's bytes (50 MiB). */
@@ -349,7 +349,7 @@ export function apply(ctx: HostContext, config?: Config): void {
 
   ctx.effect(() => ctx.webServer.register({
     kind: 'prefix',
-    path: '/sidebar-upload',
+    path: '/sidebar-explorer',
     handler: async (req, res) => {
       if (!isTrustedRequest(req, ctx.webRuntime.trustedHosts)) {
         res.writeHead(403)
@@ -363,8 +363,8 @@ export function apply(ctx: HostContext, config?: Config): void {
       }
       try {
         const url = new URL(req.url ?? '/', 'http://dsh.internal')
-        const op = url.pathname.startsWith('/sidebar-upload/')
-          ? url.pathname.slice('/sidebar-upload/'.length)
+        const op = url.pathname.startsWith('/sidebar-explorer/')
+          ? url.pathname.slice('/sidebar-explorer/'.length)
           : 'upload'
         switch (op) {
           case 'upload': await handleUpload(ctx, req, res, url, uploadLimit); return
@@ -378,5 +378,5 @@ export function apply(ctx: HostContext, config?: Config): void {
         writeError(res, error)
       }
     },
-  }), 'dsh-sidebar-upload: file routes')
+  }), 'dsh-sidebar-explorer-plus: file routes')
 }

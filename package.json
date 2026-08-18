@@ -1,5 +1,5 @@
 {
-  "name": "dsh-sidebar-upload",
+  "name": "dsh-sidebar-explorer-plus",
   "version": "0.1.0",
   "description": "Drag-and-drop file/folder upload tab for dsh-better-sidebar. Drop any files or folders onto the tab to upload them into the conversation workspace.",
   "type": "module",
@@ -47,7 +47,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/Wulabalabo/dsh-sidebar-upload.git"
+    "url": "https://github.com/Wulabalabo/dsh-sidebar-Explorer-Plus.git"
   },
   "peerDependencies": {
     "cordis": "^4.0.0-rc.7",

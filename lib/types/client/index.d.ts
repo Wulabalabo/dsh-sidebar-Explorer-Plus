@@ -1,5 +1,5 @@
 /**
- * dsh-sidebar-upload client half.
+ * dsh-sidebar-explorer-plus client half.
  *
  * Registers a file-manager tab ("文件" / "Files") in dsh-better-sidebar through
  * the public `ctx.betterSidebar.registerTab` service. The tab shows a tree of
