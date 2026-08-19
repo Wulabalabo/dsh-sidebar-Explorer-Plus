@@ -171,7 +171,7 @@ interface DroppedFile {
 
 function entryOf(item: DataTransferItem): FileSystemEntry | null {
   const getEntry = item.webkitGetAsEntry as (() => FileSystemEntry | null) | undefined
-  return typeof getEntry === 'function' ? getEntry() : null
+  return typeof getEntry === 'function' ? getEntry.call(item) : null
 }
 
 function fileOf(entry: FileSystemFileEntry): Promise<File> {
