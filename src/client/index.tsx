@@ -362,9 +362,10 @@ function UploadView(props: UploadTabProps): ReturnType<typeof createElement> {
     treeRef.current = {}
     setTree({})
     if (root === undefined) return
-    loadDir(root)
-    for (const dir of expanded) loadDir(dir)
-  }, [root, expanded, loadDir])
+    const dirs = new Set<string>([root, ...expanded])
+    if (selected !== null) dirs.add(selected)
+    for (const dir of dirs) loadDir(dir)
+  }, [root, expanded, selected, loadDir])
 
   // Load the root and the expanded set.
   useEffect(() => {
@@ -461,6 +462,10 @@ function UploadView(props: UploadTabProps): ReturnType<typeof createElement> {
         setBusy(false)
         setProgress(null)
         setResult({ uploaded, overwrote, failed })
+        // Reveal + reload the upload target so the new files show up.
+        if (targetDir !== undefined && targetDir !== root) {
+          setExpanded((prev) => prev.includes(targetDir) ? prev : [...prev, targetDir])
+        }
         reload()
       })
     }).catch((e: unknown) => {
@@ -525,11 +530,12 @@ function UploadView(props: UploadTabProps): ReturnType<typeof createElement> {
     if (to === from) return
     setError(null)
     moveOne(scope, from, to).then(() => {
+      if (!expanded.includes(dir)) setExpanded((prev) => [...prev, dir])
       reload()
     }).catch((e: unknown) => {
       setError(e instanceof Error ? e.message : String(e))
     })
-  }, [scope, reload])
+  }, [scope, expanded, reload])
 
   const openMenu = useCallback((event: React.MouseEvent, path: string, name: string, isDir: boolean) => {
     event.preventDefault()
@@ -618,7 +624,13 @@ function UploadView(props: UploadTabProps): ReturnType<typeof createElement> {
       type: 'button',
       disabled: targetDir === undefined,
       onClick: () => targetDir !== undefined && doMkdir(targetDir)
-    }, `+ ${label('新建文件夹', 'New folder')}`)
+    }, `+ ${label('新建文件夹', 'New folder')}`),
+    createElement('button', {
+      className: 'dse-newbtn',
+      type: 'button',
+      title: label('刷新', 'Refresh'),
+      onClick: () => { setError(null); reload() }
+    }, label('刷新', 'Refresh'))
   ))
 
   // Root row (always expanded, selectable, a move drop target).
